@@ -50,6 +50,34 @@ test('POST login con nombre de usuario muy corto responde 422', async () => {
   assert.ok(respuesta.body.detalles.some((detalle) => detalle.campo === 'nombreUsuario'));
 });
 
+test('POST registro con cuerpo vacio responde 422 detallando los campos', async () => {
+  const respuesta = await request(app).post('/api/v1/auth/registro').send({}).expect(422);
+
+  assert.equal(respuesta.body.exito, false);
+  assert.equal(respuesta.body.codigo, 'DATOS_INVALIDOS');
+  const campos = respuesta.body.detalles.map((detalle) => detalle.campo);
+  assert.deepEqual(campos.sort(), ['contrasena', 'nombreUsuario']);
+});
+
+test('POST registro exige una contrasena de al menos 8 caracteres', async () => {
+  const respuesta = await request(app)
+    .post('/api/v1/auth/registro')
+    .send({ nombreUsuario: 'nuevo_cliente', contrasena: 'corta' })
+    .expect(422);
+
+  assert.ok(respuesta.body.detalles.some((detalle) => detalle.campo === 'contrasena'));
+});
+
+test('POST registro rechaza un email con formato invalido', async () => {
+  const respuesta = await request(app)
+    .post('/api/v1/auth/registro')
+    .send({ nombreUsuario: 'nuevo_cliente', contrasena: 'ClaveSegura123', email: 'no-es-un-email' })
+    .expect(422);
+
+  assert.equal(respuesta.body.codigo, 'DATOS_INVALIDOS');
+  assert.ok(respuesta.body.detalles.some((detalle) => detalle.campo === 'email'));
+});
+
 test('POST login con JSON mal formado responde 400', async () => {
   const respuesta = await request(app)
     .post('/api/v1/auth/login')

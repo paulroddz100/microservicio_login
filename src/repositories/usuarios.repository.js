@@ -85,16 +85,21 @@ export async function crearUsuario({ nombreUsuario, passwordHash, email, nombreC
     INSERT INTO usuarios (nombre_usuario, password_hash, email, nombre_completo, rol_id)
     SELECT ?, ?, ?, ?, id FROM roles WHERE nombre = ?
   `;
-  const [resultado] = await pool.execute(sql, [
-    nombreUsuario,
-    passwordHash,
-    email ?? null,
-    nombreCompleto ?? null,
-    rol
-  ]);
 
-  if (resultado.affectedRows === 0) {
-    throw new Error(`El rol "${rol}" no existe en el catalogo de roles.`);
+  try {
+    const [resultado] = await pool.execute(sql, [
+      nombreUsuario,
+      passwordHash,
+      email ?? null,
+      nombreCompleto ?? null,
+      rol
+    ]);
+
+    if (resultado.affectedRows === 0) {
+      throw new Error(`El rol "${rol}" no existe en el catalogo de roles.`);
+    }
+    return resultado.insertId;
+  } catch (error) {
+    throw traducirError(error);
   }
-  return resultado.insertId;
 }

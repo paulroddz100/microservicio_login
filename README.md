@@ -90,6 +90,7 @@ texto para mostrar al usuario final. **No parses `mensaje`**, cambia según el c
 | 401  | `TOKEN_INVALIDO`           | Falta el token, expiró o es inválido | Cierra sesión y vuelve al login            |
 | 403  | `USUARIO_INACTIVO`         | La cuenta está deshabilitada         | Contacta al administrador                 |
 | 403  | `ACCESO_DENEGADO`          | El rol no tiene permiso              | Oculta la opción del menú                 |
+| 409  | `USUARIO_YA_EXISTE`        | El nombre de usuario o el email ya está en uso | Muestra "ya existe una cuenta con esos datos" |
 | 422  | `DATOS_INVALIDOS`          | Faltan campos o el formato no cumple | Revisa el formulario; `detalles` dice cuál |
 | 423  | `USUARIO_BLOQUEADO`        | 5 intentos fallidos seguidos         | Muestra que espere unos minutos           |
 | 429  | `LIMITE_INTENTOS`          | Demasiados intentos desde esa IP     | Pide esperar unos minutos                 |
@@ -115,7 +116,65 @@ Cuando el error es `422` o `ACCESO_DENEGADO` hay un campo `detalles` con el deta
 
 ---
 
-## 2. Verificar que la sesión sigue vigente
+## 2. Crear una cuenta  `POST /api/v1/auth/registro`
+
+Endpoint público para que un usuario sin cuenta se registre. La cuenta se crea con el rol
+`CLIENTE` y la respuesta **ya incluye el token**, de modo que no hace falta volver al login.
+
+**Petición**
+
+```json
+{
+  "nombreUsuario": "juan",
+  "contrasena": "ClaveSegura123",
+  "email": "juan@correo.com",
+  "nombreCompleto": "Juan Perez"
+}
+```
+
+| Campo           | Tipo   | Obligatorio | Notas                                      |
+| --------------- | ------ | ----------- | ------------------------------------------ |
+| `nombreUsuario` | string | Sí          | 3 a 60 caracteres, único                   |
+| `contrasena`    | string | Sí          | 8 a 200 caracteres                         |
+| `email`         | string | No          | Formato válido, único. Vacío = se ignora   |
+| `nombreCompleto`| string | No          | 2 a 150 caracteres. Vacío = se ignora      |
+
+**Respuesta 201 — cuenta creada (auto-login)**
+
+```json
+{
+  "exito": true,
+  "operacion": "REGISTRAR_USUARIO",
+  "mensaje": "Cuenta creada correctamente",
+  "datos": {
+    "autenticado": true,
+    "idUsuario": 42,
+    "nombreUsuario": "juan",
+    "email": "juan@correo.com",
+    "nombreCompleto": "Juan Perez",
+    "rol": "CLIENTE",
+    "ultimoAcceso": null,
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "tipoToken": "Bearer",
+    "expiraEn": 900,
+    "expiraEnTexto": "15m"
+  }
+}
+```
+
+`datos` tiene exactamente la misma forma que la respuesta del login, así que el frontend puede
+usar el mismo código para guardar la sesión tras registrarse o tras autenticarse.
+
+Códigos de error específicos:
+
+| HTTP | `codigo`           | Qué ocurrió                       | Qué hacer en el frontend              |
+| ---- | ------------------ | --------------------------------- | ------------------------------------- |
+| 409  | `USUARIO_YA_EXISTE`| El nombre de usuario o el email ya está registrado | Muestra "ya existe una cuenta con esos datos" |
+| 422  | `DATOS_INVALIDOS`  | Faltan campos o el formato no cumple | Revisa el formulario; `detalles` dice cuál |
+
+---
+
+## 3. Verificar que la sesión sigue vigente
 
 `GET /api/v1/auth/verificar` — requiere el token.
 
@@ -147,7 +206,7 @@ if (respuesta.status === 401) redirigirAlLogin();
 }
 ```
 
-## 3. Otros endpoints
+## 4. Otros endpoints
 
 | Método | Ruta                       | Para qué sirve                                |
 | ------ | -------------------------- | --------------------------------------------- |

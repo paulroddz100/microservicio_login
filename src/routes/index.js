@@ -3,6 +3,7 @@ import rateLimit from 'express-rate-limit';
 import {
   estadoServicio,
   iniciarSesion,
+  registrarUsuario,
   verificarToken,
   consultarPerfil
 } from '../controllers/autenticacion.controller.js';
@@ -26,6 +27,19 @@ const limiteIntentos = rateLimit({
   }
 });
 
+const limiteRegistros = rateLimit({
+  windowMs: variables.LOGIN_RATE_LIMIT_WINDOW_MS,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: () => variables.NODE_ENV === 'test',
+  message: {
+    exito: false,
+    codigo: 'LIMITE_INTENTOS',
+    mensaje: 'Demasiadas cuentas creadas desde esta IP. Espere unos minutos antes de volver a intentar.'
+  }
+});
+
 router.get('/estado', (req, res) => estadoServicio(req, res));
 
 router.get('/salud', controlAsincrono(async (req, res) => {
@@ -39,6 +53,8 @@ router.get('/salud', controlAsincrono(async (req, res) => {
 }));
 
 router.post('/auth/login', limiteIntentos, controlAsincrono(iniciarSesion));
+
+router.post('/auth/registro', limiteRegistros, controlAsincrono(registrarUsuario));
 
 router.get('/auth/verificar', requiereAutenticacion, verificarToken);
 

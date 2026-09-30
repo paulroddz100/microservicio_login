@@ -10,13 +10,6 @@ export class ErrorAplicacion extends Error {
   }
 }
 
-export class ErrorValidacion extends ErrorAplicacion {
-  constructor(mensaje, detalles) {
-    super(mensaje, { estadoHttp: 422, codigo: 'DATOS_INVALIDOS', detalles });
-    this.name = 'ErrorValidacion';
-  }
-}
-
 export class ErrorCredenciales extends ErrorAplicacion {
   constructor(mensaje = 'Credenciales invalidas') {
     super(mensaje, { estadoHttp: 401, codigo: 'CREDENCIALES_INVALIDAS' });

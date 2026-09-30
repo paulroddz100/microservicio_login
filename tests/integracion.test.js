@@ -180,6 +180,72 @@ test('el login nunca expone el hash de la contrasena', { ...opciones }, async ()
   await limpiarUsuario();
 });
 
+const NUEVO_USUARIO = {
+  nombreUsuario: 'nuevo_cliente_prueba',
+  contrasena: 'ClaveNueva123',
+  email: 'nuevo@prueba.com',
+  nombreCompleto: 'Cliente de Registro'
+};
+
+async function eliminarNuevoUsuario() {
+  await pool.execute('DELETE FROM usuarios WHERE nombre_usuario = ?', [NUEVO_USUARIO.nombreUsuario]);
+}
+
+test('registro exitoso crea la cuenta con rol CLIENTE y la devuelve autenticada', { ...opciones }, async () => {
+  await eliminarNuevoUsuario();
+
+  const respuesta = await request(app).post('/api/v1/auth/registro').send(NUEVO_USUARIO).expect(201);
+
+  assert.equal(respuesta.body.exito, true);
+  assert.equal(respuesta.body.operacion, 'REGISTRAR_USUARIO');
+  assert.equal(respuesta.body.datos.autenticado, true);
+  assert.equal(respuesta.body.datos.rol, 'CLIENTE');
+  assert.equal(respuesta.body.datos.nombreUsuario, NUEVO_USUARIO.nombreUsuario);
+  assert.equal(respuesta.body.datos.email, NUEVO_USUARIO.email);
+  assert.ok(respuesta.body.datos.token.split('.').length === 3);
+  assert.equal(respuesta.body.datos.passwordHash, undefined);
+
+  const login = await request(app)
+    .post('/api/v1/auth/login')
+    .send({ nombreUsuario: NUEVO_USUARIO.nombreUsuario, contrasena: NUEVO_USUARIO.contrasena })
+    .expect(200);
+
+  assert.equal(login.body.datos.rol, 'CLIENTE');
+
+  await eliminarNuevoUsuario();
+});
+
+test('registro con un nombre de usuario ya existente responde 409', { ...opciones }, async () => {
+  await eliminarNuevoUsuario();
+  await request(app).post('/api/v1/auth/registro').send(NUEVO_USUARIO).expect(201);
+
+  const duplicado = await request(app)
+    .post('/api/v1/auth/registro')
+    .send({ ...NUEVO_USUARIO, email: 'otro@prueba.com' })
+    .expect(409);
+
+  assert.equal(duplicado.body.exito, false);
+  assert.equal(duplicado.body.codigo, 'USUARIO_YA_EXISTE');
+  assert.ok(duplicado.body.mensaje.includes('nombre de usuario'));
+
+  await eliminarNuevoUsuario();
+});
+
+test('registro con un email ya registrado responde 409', { ...opciones }, async () => {
+  await eliminarNuevoUsuario();
+  await request(app).post('/api/v1/auth/registro').send(NUEVO_USUARIO).expect(201);
+
+  const duplicado = await request(app)
+    .post('/api/v1/auth/registro')
+    .send({ ...NUEVO_USUARIO, nombreUsuario: 'otro_nombre_prueba' })
+    .expect(409);
+
+  assert.equal(duplicado.body.codigo, 'USUARIO_YA_EXISTE');
+  await pool.execute('DELETE FROM usuarios WHERE nombre_usuario = ?', ['otro_nombre_prueba']);
+
+  await eliminarNuevoUsuario();
+});
+
 after(async () => {
   if (disponible) await pool.end();
 });

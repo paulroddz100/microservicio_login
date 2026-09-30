@@ -11,6 +11,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "db:schema": "node scripts/crear-esquema.js",
+    "db:usuario-app": "node scripts/crear-usuario-app.js",
     "db:usuarios": "node scripts/crear-usuarios.js",
     "db:reset": "node scripts/crear-esquema.js --reset && node scripts/crear-usuarios.js",
     "test": "node --test \"tests/*.test.js\""

@@ -1,5 +1,5 @@
 import mysql from 'mysql2/promise';
-import { dbConfig, variables, esPruebas } from './entorno.js';
+import { dbConfig, esPruebas } from './entorno.js';
 import { logger } from '../utils/logger.js';
 
 export const pool = mysql.createPool(dbConfig);
@@ -33,5 +33,3 @@ export async function cerrarPool() {
   await pool.end();
   logger.info('Pool de conexiones MySQL cerrado.');
 }
-
-export { variables as configBaseDatos };

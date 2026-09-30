@@ -40,6 +40,7 @@ export function crearAplicacion() {
         version: '1.0.0',
         documentacion: 'README.md',
         endpoints: [
+          `POST ${variables.API_PREFIX}/auth/registro`,
           `POST ${variables.API_PREFIX}/auth/login`,
           `GET  ${variables.API_PREFIX}/auth/verificar`,
           `GET  ${variables.API_PREFIX}/auth/perfil`,

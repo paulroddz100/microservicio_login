@@ -8,7 +8,3 @@ export async function generarHash(password) {
 export function verificarPassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
-
-export async function generarHashDePrueba(password) {
-  return bcrypt.hash(password, 10);
-}

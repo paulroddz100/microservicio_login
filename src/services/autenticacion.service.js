@@ -1,33 +1,33 @@
 import { variables } from '../config/entorno.js';
 import { firmarToken, segundosDeVigencia } from '../utils/jwt.js';
-import { generarHashDePrueba, verificarPassword } from '../utils/passwords.js';
+import { generarHash, verificarPassword } from '../utils/passwords.js';
 import { ErrorAplicacion, ErrorCredenciales } from '../utils/errores.js';
 import { logger } from '../utils/logger.js';
 import {
   buscarUsuarioPorNombre,
+  crearUsuario,
   registrarAcceso,
   registrarIntentoFallido
 } from '../repositories/usuarios.repository.js';
 
 const MAX_INTENTOS_FALLIDOS = 5;
 const MINUTOS_BLOQUEO = 15;
+const ROL_REGISTRO = 'CLIENTE';
 
-const hashDeComparacion = generarHashDePrueba('comparacion-para-igualar-tiempos');
+// Hash señuelo: si el usuario no existe se compara contra el, de modo que la
+// respuesta tarde lo mismo y no se pueda adivinar que cuentas estan dadas de alta.
+const hashSeñuelo = generarHash('señuelo-para-igualar-tiempos');
 
 function estaBloqueado(usuario) {
-  if (!usuario.bloqueadoHasta) return false;
-  return new Date(usuario.bloqueadoHasta).getTime() > Date.now();
+  return usuario.bloqueadoHasta ? new Date(usuario.bloqueadoHasta).getTime() > Date.now() : false;
 }
 
 function mensajeBloqueo(usuario) {
-  const minutos = Math.max(
-    1,
-    Math.ceil((new Date(usuario.bloqueadoHasta).getTime() - Date.now()) / 60000)
-  );
+  const minutos = Math.max(1, Math.ceil((new Date(usuario.bloqueadoHasta) - Date.now()) / 60000));
   return `Usuario bloqueado temporalmente por intentos fallidos. Intente nuevamente en ${minutos} minuto(s).`;
 }
 
-function datosPublicos(usuario, token) {
+function datosPublicos(usuario) {
   return {
     idUsuario: usuario.id,
     nombreUsuario: usuario.nombreUsuario,
@@ -38,11 +38,25 @@ function datosPublicos(usuario, token) {
   };
 }
 
+// Abre una sesion: registra el acceso y firma el token. Lo usan el login y el registro.
+async function abrirSesion(usuario) {
+  await registrarAcceso(usuario.id);
+
+  return {
+    ...datosPublicos(usuario),
+    autenticado: true,
+    token: firmarToken(usuario),
+    tipoToken: 'Bearer',
+    expiraEn: segundosDeVigencia(),
+    expiraEnTexto: variables.JWT_EXPIRES_IN
+  };
+}
+
 export async function autenticar({ nombreUsuario, contrasena }) {
   const usuario = await buscarUsuarioPorNombre(nombreUsuario);
 
   if (!usuario) {
-    await verificarPassword(contrasena, await hashDeComparacion);
+    await verificarPassword(contrasena, await hashSeñuelo);
     logger.warn(`Intento de autenticacion con usuario inexistente: "${nombreUsuario}"`);
     throw new ErrorCredenciales();
   }
@@ -70,19 +84,33 @@ export async function autenticar({ nombreUsuario, contrasena }) {
     throw new ErrorCredenciales();
   }
 
-  await registrarAcceso(usuario.id);
-
-  const token = firmarToken(usuario);
-  const segundos = segundosDeVigencia();
-
   logger.info(`Autenticacion exitosa del usuario "${nombreUsuario}" (id ${usuario.id}, rol ${usuario.rol}).`);
+  return abrirSesion(usuario);
+}
 
-  return {
-    ...datosPublicos(usuario),
-    autenticado: true,
-    token,
-    tipoToken: 'Bearer',
-    expiraEn: segundos,
-    expiraEnTexto: variables.JWT_EXPIRES_IN
-  };
+export async function registrar({ nombreUsuario, contrasena, email, nombreCompleto }) {
+  if (await buscarUsuarioPorNombre(nombreUsuario)) {
+    throw new ErrorAplicacion('El nombre de usuario ya esta registrado.', {
+      estadoHttp: 409,
+      codigo: 'USUARIO_YA_EXISTE'
+    });
+  }
+
+  try {
+    const passwordHash = await generarHash(contrasena);
+    await crearUsuario({ nombreUsuario, passwordHash, email, nombreCompleto, rol: ROL_REGISTRO });
+  } catch (error) {
+    // La base impide nombres o emails duplicados; si llegan aqui, ya existe la cuenta.
+    if (error.code === 'ER_DUP_ENTRY') {
+      throw new ErrorAplicacion('El nombre de usuario o el email ya estan registrados.', {
+        estadoHttp: 409,
+        codigo: 'USUARIO_YA_EXISTE'
+      });
+    }
+    throw error;
+  }
+
+  const nuevo = await buscarUsuarioPorNombre(nombreUsuario);
+  logger.info(`Usuario registrado "${nombreUsuario}" (id ${nuevo.id}, rol ${nuevo.rol}).`);
+  return abrirSesion(nuevo);
 }
