@@ -252,6 +252,55 @@ curl -X POST http://localhost:3000/api/v1/auth/login \
 
 ---
 
+## Probar la API desde el navegador
+
+El archivo [`prueba-api.html`](prueba-api.html) es un cliente web para probar todos los
+endpoints sin instalar nada más. Requiere solo el servidor corriendo.
+
+**Pasos**
+
+1. Arranca el servicio:
+
+   ```bash
+   npm start
+   ```
+
+2. Abre `prueba-api.html` con doble clic en el Explorador de Windows (o `start prueba-api.html`).
+   Funciona desde `file://` porque CORS está abierto en desarrollo.
+
+3. La URL base viene configurada como `http://localhost:3000`. Si usas otro puerto, cámbiala en
+   el campo superior.
+
+**Qué permite probar**
+
+| Sección        | Endpoints                                                        |
+| -------------- | ---------------------------------------------------------------- |
+| Sin autenticación | `GET /`, `GET /api/v1/estado`, `GET /api/v1/salud`            |
+| Registro       | `POST /api/v1/auth/registro`                                     |
+| Login          | `POST /api/v1/auth/login` (botones para los usuarios demo)       |
+| Con token      | `GET /api/v1/auth/verificar`, `GET /api/v1/auth/perfil`, `GET /api/v1/auth/admin/panel`, y un 404 de prueba |
+
+**Funciones incluidas**
+
+- El login y el registro guardan el `token` automáticamente y rellenan el campo `Authorization`.
+- Decodificador del JWT: muestra el payload (usuario, rol) y si el token sigue vigente.
+- Respuesta formateada con código HTTP, tiempo de respuesta e historial de peticiones
+  (haz clic en una entrada del historial para volver a verla).
+
+**Usuarios demo** (se crean con `npm run db:usuarios`, contraseña `ClaveDemo123`):
+
+| Usuario     | Rol       | Para probar                          |
+| ----------- | --------- | ------------------------------------ |
+| `admin`     | `ADMIN`   | `GET /api/v1/auth/admin/panel`       |
+| `vendedor`  | `VENDEDOR`| Acceso normal con rol vendedor       |
+| `cliente`   | `CLIENTE` | Login y perfil                       |
+| `inactivo`  | `CLIENTE` | Error `403 USUARIO_INACTIVO`         |
+
+> `GET /api/v1/salud`, login y registro necesitan MySQL activo; `/`, `/api/v1/estado` y el 404
+> funcionan sin base de datos.
+
+---
+
 ## Notas para el frontend
 
 - **El token expira a los 15 minutos** (`expiraEn: 900`). Cuando el backend responda `401
